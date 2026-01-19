@@ -1,0 +1,28 @@
+{
+  "name": "whatsapp-group-scraper",
+  "version": "1.0.0",
+  "description": "WhatsApp group message scraper with Neon PostgreSQL",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "dev": "nodemon main.js"
+  },
+  "keywords": ["whatsapp", "scraper", "postgres", "neon"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "whatsapp-web.js": "^1.23.0",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode": "^1.5.3",
+    "puppeteer": "^21.6.1",
+    "express": "^4.18.2",
+    "moment": "^2.29.4",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
