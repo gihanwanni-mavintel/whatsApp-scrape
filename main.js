@@ -68,66 +68,87 @@ async function getPuppeteerConfig() {
     // Use @sparticuz/chromium for cloud environments
     const chromium = require('@sparticuz/chromium');
     baseConfig.executablePath = await chromium.executablePath();
+    logger.info('Using @sparticuz/chromium for production');
   } else if (process.platform === 'win32') {
     // Use local Chrome on Windows
     baseConfig.executablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+    logger.info('Using local Chrome for development');
   }
 
   return baseConfig;
 }
 
-const client = new Client({
-  authStrategy: new LocalAuth({
-    dataPath: config.whatsapp.sessionPath,
-  }),
-  puppeteer: getPuppeteerConfig,
-});
+// Client will be initialized asynchronously
+let client;
 
-// Client event handlers
-client.on("ready", () => {
-  logger.info("WhatsApp client is ready!");
-  clientReady = true;
-
-  // Initialize message handler
-  messageHandler = new MessageHandler(client);
-
-  // Initialize and start cron jobs
-  cronScheduler = new CronScheduler(messageHandler);
-  cronScheduler.startAll();
-
-  logger.info("System fully initialized");
-});
-
-client.on("qr", async (qr) => {
-  logger.info("QR code received - Scan with WhatsApp mobile app:");
-  qrcodeTerminal.generate(qr, { small: true });
-  console.log("\nOr scan this QR code in the terminal above ^\n");
-
-  // Generate QR code as data URL for web display (useful for Render deployment)
+// Initialize WhatsApp client
+async function initializeWhatsAppClient() {
   try {
-    latestQRCode = await QRCode.toDataURL(qr);
-    logger.info("QR code available at: GET /api/qr");
+    logger.info('Initializing WhatsApp client...');
+
+    const puppeteerConfig = await getPuppeteerConfig();
+
+    client = new Client({
+      authStrategy: new LocalAuth({
+        dataPath: config.whatsapp.sessionPath,
+      }),
+      puppeteer: puppeteerConfig,
+    });
+
+    // Client event handlers
+    client.on("ready", () => {
+      logger.info("WhatsApp client is ready!");
+      clientReady = true;
+
+      // Initialize message handler
+      messageHandler = new MessageHandler(client);
+
+      // Initialize and start cron jobs
+      cronScheduler = new CronScheduler(messageHandler);
+      cronScheduler.startAll();
+
+      logger.info("System fully initialized");
+    });
+
+    client.on("qr", async (qr) => {
+      logger.info("QR code received - Scan with WhatsApp mobile app:");
+      qrcodeTerminal.generate(qr, { small: true });
+      console.log("\nOr scan this QR code in the terminal above ^\n");
+
+      // Generate QR code as data URL for web display (useful for Render deployment)
+      try {
+        latestQRCode = await QRCode.toDataURL(qr);
+        logger.info("QR code available at: GET /api/qr");
+      } catch (error) {
+        logger.error("Error generating QR code image:", error);
+      }
+    });
+
+    client.on("authenticated", () => {
+      logger.info("WhatsApp client authenticated successfully!");
+    });
+
+    client.on("auth_failure", (msg) => {
+      logger.error("Authentication failure:", msg);
+    });
+
+    client.on("disconnected", (reason) => {
+      logger.warn("WhatsApp client disconnected:", reason);
+      clientReady = false;
+    });
+
+    // Initialize client
+    await client.initialize();
+
   } catch (error) {
-    logger.error("Error generating QR code image:", error);
+    logger.error('Failed to initialize WhatsApp client:', error);
+    throw error;
   }
-});
-
-client.on("authenticated", () => {
-  logger.info("WhatsApp client authenticated successfully!");
-});
-
-client.on("auth_failure", (msg) => {
-  logger.error("Authentication failure:", msg);
-});
-
-client.on("disconnected", (reason) => {
-  logger.warn("WhatsApp client disconnected:", reason);
-  clientReady = false;
-});
+}
 
 // Initialize database and start client
 dbManager.initialize();
-client.initialize();
+initializeWhatsAppClient();
 
 // ==========================================
 // API Middleware
