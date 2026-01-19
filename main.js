@@ -47,31 +47,40 @@ let latestQRCode = null; // Store QR code for web display
 
 // Puppeteer configuration based on environment
 const isProduction = process.env.NODE_ENV === 'production';
-const puppeteerConfig = {
-  headless: isProduction ? true : false,
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-accelerated-2d-canvas',
-    '--no-first-run',
-    '--no-zygote',
-    '--disable-gpu',
-    '--single-process',
-    '--disable-extensions'
-  ],
-};
 
-// Only set executablePath on Windows (local development)
-if (process.platform === 'win32') {
-  puppeteerConfig.executablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+async function getPuppeteerConfig() {
+  const baseConfig = {
+    headless: isProduction ? true : false,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu',
+      '--single-process',
+      '--disable-extensions'
+    ],
+  };
+
+  if (isProduction) {
+    // Use @sparticuz/chromium for cloud environments
+    const chromium = require('@sparticuz/chromium');
+    baseConfig.executablePath = await chromium.executablePath();
+  } else if (process.platform === 'win32') {
+    // Use local Chrome on Windows
+    baseConfig.executablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  }
+
+  return baseConfig;
 }
 
 const client = new Client({
   authStrategy: new LocalAuth({
     dataPath: config.whatsapp.sessionPath,
   }),
-  puppeteer: puppeteerConfig,
+  puppeteer: getPuppeteerConfig,
 });
 
 // Client event handlers
